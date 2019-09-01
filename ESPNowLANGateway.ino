@@ -5,17 +5,6 @@
 
 #define CHANNEL 1
 
-// keep in sync with slave struct
-struct __attribute__((packed)) SENSOR_DATA {
-  uint8_t  version;
-  uint32_t bootcount;
-  uint16_t hg;
-  float    temp;
-  uint16_t battRaw;
-  uint16_t battVolt;
-  uint8_t  battCharge;
-} sensorData;
-
 #define ETH_POWER_PIN   -1
 #define ETH_ADDR        1
 
@@ -196,7 +185,7 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
   snprintf(espnow_macStr, sizeof(espnow_macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
   espnow_dataLen = data_len;
-  espnow_data = (uint8_t*)malloc(data_len*sizeof(uint8_t));
+  espnow_data = (uint8_t*)malloc(data_len * sizeof(uint8_t));
   memcpy(espnow_data, data, data_len);
 }
 
@@ -229,7 +218,6 @@ void handleKeepAlive() {
 void processEspNowData() {
   Serial.print("Last Packet Recv from: "); Serial.println(espnow_macStr);
   Serial.print("Last Packet Recv Len: "); Serial.println(espnow_dataLen);
-
   Serial.print("Last Packet Recv Data: ");
 
   for (int i = 0; i < espnow_dataLen; i++) {
@@ -238,25 +226,9 @@ void processEspNowData() {
   }
   Serial.println();
 
-  if (sizeof(sensorData) == espnow_dataLen) {
-    Serial.println("Got known data");
-    memcpy(&sensorData, espnow_data, sizeof(sensorData));
-    Serial.println("Sensor data");
-    Serial.print("Uptime: "); Serial.println(sensorData.bootcount);
-    Serial.print("Temperature: "); Serial.println(sensorData.temp);
-    Serial.print("pressure: "); Serial.println(sensorData.hg);
-    Serial.print("Battery level: ");
-    Serial.print(sensorData.battCharge);
-    Serial.print("% (");
-    Serial.print(sensorData.battVolt);
-    Serial.print("V) (");
-    Serial.print(sensorData.battRaw);
-    Serial.println(" RAW)");
+  if (mqtt.connected()) {
+    mqtt.publish(String(MQTT_ROOT_TOPIC + String("/") + espnow_macStr).c_str(), espnow_data, espnow_dataLen);
   }
-
-    if (mqtt.connected()) {
-      mqtt.publish(String(MQTT_ROOT_TOPIC + String("/")+espnow_macStr).c_str(), espnow_data, espnow_dataLen);
-    }
 }
 
 void loop() {
@@ -264,10 +236,6 @@ void loop() {
   if (espnow_received)
   {
     Serial.println("Received ESP Now data");
-
-    if (mqtt.connected()) {
-      mqtt.publish(String(MQTT_ROOT_TOPIC + String("/receive")).c_str(), "Received ESPNow message");
-    }
 
     processEspNowData();
 
