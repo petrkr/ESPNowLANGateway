@@ -52,6 +52,7 @@ void InitESPNow() {
 
 static bool eth_connected = false;
 bool     espnow_received = false;
+char     espnow_macStr[18];
 uint8_t  espnow_dataLen;
 uint8_t  *espnow_data;
 
@@ -192,41 +193,11 @@ void OnDataRecv(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
   }
 
   espnow_received = true;
-  espnow_dataLen = data_len;
-  espnow_data = (uint8_t*)data;
-}
-
-void OnDataRecv2(const uint8_t *mac_addr, const uint8_t *data, int data_len) {
-  char macStr[18];
-  snprintf(macStr, sizeof(macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
+  snprintf(espnow_macStr, sizeof(espnow_macStr), "%02x:%02x:%02x:%02x:%02x:%02x",
            mac_addr[0], mac_addr[1], mac_addr[2], mac_addr[3], mac_addr[4], mac_addr[5]);
-  Serial.print("Last Packet Recv from: "); Serial.println(macStr);
-  Serial.print("Last Packet Recv Len: "); Serial.println(data_len);
-  Serial.print("Last Packet Recv Data: ");
-
-  for (int i = 0; i < data_len; i++) {
-    Serial.print(data[i], HEX);
-    Serial.print(" ");
-  }
-  Serial.println();
-
-  if (sizeof(sensorData) == data_len) {
-    Serial.println("Got known data");
-    memcpy(&sensorData, data, sizeof(sensorData));
-    Serial.println("Sensor data");
-    Serial.print("Uptime: "); Serial.println(sensorData.bootcount);
-    Serial.print("Temperature: "); Serial.println(sensorData.temp);
-    Serial.print("pressure: "); Serial.println(sensorData.hg);
-    Serial.print("Battery level: ");
-    Serial.print(sensorData.battCharge);
-    Serial.print("% (");
-    Serial.print(sensorData.battVolt);
-    Serial.print("V) (");
-    Serial.print(sensorData.battRaw);
-    Serial.println(" RAW)");
-  }
-
-  Serial.println("");
+  espnow_dataLen = data_len;
+  espnow_data = (uint8_t*)malloc(data_len*sizeof(uint8_t));
+  memcpy(espnow_data, data, data_len);
 }
 
 long previousMQTTKeepAliveMillis = 0;
@@ -256,7 +227,9 @@ void handleKeepAlive() {
 }
 
 void processEspNowData() {
+  Serial.print("Last Packet Recv from: "); Serial.println(espnow_macStr);
   Serial.print("Last Packet Recv Len: "); Serial.println(espnow_dataLen);
+
   Serial.print("Last Packet Recv Data: ");
 
   for (int i = 0; i < espnow_dataLen; i++) {
@@ -280,6 +253,10 @@ void processEspNowData() {
     Serial.print(sensorData.battRaw);
     Serial.println(" RAW)");
   }
+
+    if (mqtt.connected()) {
+      mqtt.publish(String(MQTT_ROOT_TOPIC + String("/")+espnow_macStr).c_str(), espnow_data, espnow_dataLen);
+    }
 }
 
 void loop() {
@@ -294,6 +271,7 @@ void loop() {
 
     processEspNowData();
 
+    free(espnow_data);
     espnow_received = false;
   }
 
