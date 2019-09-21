@@ -8,6 +8,12 @@
 #define ETH_POWER_PIN   -1
 #define ETH_ADDR        1
 
+#define RXLED 4
+#define CONNLED 13
+
+#define RXBLINKDELAY 100
+long lastrxblink = 0;
+
 //TODO: Configuration
 const char* host = "espNow32mqtt1";
 
@@ -131,6 +137,9 @@ void setup() {
 
   Serial.print(F("LAN connect... "));
 
+  pinMode(RXLED, OUTPUT);
+  pinMode(CONNLED, OUTPUT);
+
   WiFi.onEvent(WiFiEvent);
   ETH.begin(ETH_ADDR, ETH_POWER_PIN, ETH_PHY_MDC, ETH_PHY_MDIO, ETH_PHY_TYPE, ETH_CLOCK_GPIO17_OUT);
 
@@ -235,6 +244,7 @@ void loop() {
 
   if (espnow_received)
   {
+    lastrxblink = millis();
     Serial.println("Received ESP Now data");
 
     processEspNowData();
@@ -252,6 +262,16 @@ void loop() {
 
     handleMQTTKeepAlive();
 
+    digitalWrite(CONNLED, 1);
+  }
+  else {
+    digitalWrite(CONNLED, 0);
+  }
+
+  if ( millis() < (lastrxblink + RXBLINKDELAY) ) {
+    digitalWrite(RXLED, 1);
+  } else {
+    digitalWrite(RXLED, 0);
   }
 
   handleKeepAlive();
