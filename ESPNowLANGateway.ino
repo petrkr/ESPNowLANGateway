@@ -3,6 +3,8 @@
 #include <WiFiClientSecure.h>
 #include "PubSubClient.h"
 
+#include "Updates.h"
+
 #define CHANNEL 1
 
 #define ETH_POWER_PIN   -1
@@ -180,6 +182,14 @@ void setup() {
   Serial.print(F("IP address: "));
   Serial.println(ETH.localIP());
 
+  Serial.print(F("Configure OTA... "));
+  OTA_Setup();
+  Serial.println(F("OK"));
+
+  Serial.print(F("Configure WEB... "));
+  WEB_Setup();
+  Serial.println(F("OK"));
+
   mqtt.setServer(MQTT_SERVER, MQTT_PORT);
   mqtt.setCallback(mqtt_callback);
 }
@@ -264,6 +274,9 @@ void loop() {
   }
 
   if (eth_connected) {
+
+    handleUpdates();
+
     if (!mqtt.connected()) {
       MQTT_connect();
     }
@@ -289,5 +302,6 @@ void loop() {
       digitalWrite(RXLED, 0);
     }
   }
+
   handleKeepAlive();
 }
